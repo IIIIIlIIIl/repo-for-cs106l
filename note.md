@@ -162,3 +162,174 @@ class B:virtual public A{
 | **适用场景**       | 需要运行时多态时使用虚函数                   |
 | **性能敏感领域**   | 量化金融、游戏引擎、嵌入式避免使用虚函数     |
 | **替代方案**       | 模板、CRTP、策略模式等编译时多态             |
+
+### 非类型模板
+
+```cpp
+template <size_t N>
+class SizeTemplate {};
+SizeTemplate<5> s;
+```
+
+### 模板实现
+
+1.  .cpp 文件实现时必须有 template 那行
+
+```cpp
+// Vector.h
+template <typename T>
+class Vector {
+	public:
+	T& at(size_t i);
+};
+
+// Vector.cpp
+template <typename T>
+T& Vector<T>::at(size_t i) {
+	// Implementation...
+};
+```
+
+2.  .h 文件末尾必须 include 对应的 .cpp 文件
+
+3. typename 和 class 是一样的
+
+```cpp
+template <typename K, typename V>
+struct pair;
+// same as
+template <class K, class V>
+struct pair;
+```
+
+### const 重载
+
+```cpp
+template <class T>
+const T& Vector<T>::at(size_t index) const {
+	return elems[index];
+}
+template <class T>
+T& Vector<T>::at(size_t index) {
+	return elems[index];
+}
+```
+
+```cpp
+template <typename T>
+T& Vector<T>::findElement(const T& value) {
+	for (size_t i = 0; i < logical_size; i++) {
+		if (elems[i] == elem) return elems[i];
+	}
+	throw std::out_of_range("Element not found");
+}
+template <typename T>
+const T& Vector<T>::findElement(const T& value) const {
+    // const_cast<Vector<T>&> 移除 const 属性
+    // 几乎永远不要用 const_cast ！！！！！
+    // 应该在设计时就考虑是否 mutable
+	return const_cast<Vector<T>&>(*this).findElement(value);
+}
+```
+
+```cpp
+struct MutableStruct {
+	int dontTouchThis;
+    // 谨慎使用
+	mutable double iCanChange;
+};
+const MutableStruct cm;
+// cm.dontTouchThis = 42; // Not allowed, cm is const
+cm.iCanChange = 3.14; // Ok, iCanChange is mutable
+```
+
+### 模板函数
+
+```cpp
+// auto 解决类型问题
+template <typename T, typename U>
+auto min(const T& a, const U& b) {
+	return a < b ? a : b;
+}
+min(106, 3.14);
+```
+
+### C++ concepts
+
+```cpp
+template <typename T>
+concept Comparable = requires(T a, T b) {
+    { a < b } -> std::convertible_to<bool>;
+};
+template <typename T> requires Comparable<T>
+T min(const T& a, const T& b);
+// Super slick shorthand for the above
+template <Comparable T>
+T min(const T& a, const T& b);
+```
+
+C++20 引入了很多自带的 concepts
+
+### 可变参数模板
+
+递归实现
+
+```cpp
+// 可变参数类型相同
+template <Comparable T>
+T min(const T& v) { return v; }
+
+template <Comparable T, Comparable... Args>
+T min(const T& v, const Args&... args) {
+	auto m = min(args...);
+	return v < m ? v : m;
+}
+```
+
+```cpp
+// 可变参数类型不同
+void format(const std::string& fmt) {
+	std::cout << fmt << std::endl;
+}
+
+template <typename T, typename... Args>
+void format(const std::string& fmt, T value, Args... args) {
+	auto pos = fmt.find("{}");
+	if (pos == std::string::npos) throw std::runtime_error("Extra arg");
+	std::cout << fmt.substr(0, pos);
+	std::cout << value;
+	format(fmt.substr(pos + 2), args...);
+}
+```
+
+### Compile-time execution
+
+```cpp
+// 这么写较为复杂
+template <>
+struct Factorial<0> {
+	enum { value = 1 };
+};
+
+template <size_t N>
+struct Factorial {
+	enum { value = N * Factorial<N - 1>::value };
+};
+
+std::cout << Factorial<7>::value << std::endl;
+```
+
+```cpp
+// try to run at compile time
+constexpr size_t factorial(size_t n) {
+	if (n == 0) return 1;
+	return n * factorial(n - 1);
+}
+
+// must run at compile time
+consteval size_t factorial(size_t n) {
+	if (n == 0) return 1;
+	return n * factorial(n - 1);
+}
+```
+
