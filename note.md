@@ -333,3 +333,149 @@ consteval size_t factorial(size_t n) {
 }
 ```
 
+### 传函数作为参数
+
+```cpp
+template <typename It, typename Pred>
+It find_if(It first, It last, Pred pred) {
+	for (auto it = first; it != last; ++it) {
+		if (pred(*it)) return it;
+	}
+	return last;
+}
+// Pred 可以是一个函数指针
+find_if(corlys.begin(), corlys.end(), isVowel);
+// Pred = bool(*)(char)
+find_if(ints.begin(), ints.end(), isPrime);
+// Pred = bool(*)(int)
+```
+
+### lambda 表达式
+
+```cpp
+int n;
+std::cin >> n;
+auto lessThanN = [n](int x) { return x < n; };
+find_if(begin, end, lessThanN);
+
+auto lambda = [capture-values](arguments) {
+	return expression;
+}
+// lambda 的"捕获所有变量"只捕获局部变量（包括当前函数的参数），不包括全局变量、静态变量、类成员变量。
+[x](arguments) // captures x by value (makes a copy)
+[x&](arguments) // captures x by reference
+[x, y](arguments) // captures x, y by value
+[&](arguments) // captures everything by reference
+[&, x](arguments) // captures everything except x by reference
+[=](arguments) // captures everything by value
+```
+
+### 函数对象 (functor)
+
+可以像函数一样调用的对象，通常通过重载 operator() 实现， lambda 表达式本质上就是编译器自动生成的 functor ，函数对象可以保存自己的状态，可以有不同的实例
+
+```cpp
+class __lambda_6_18
+{
+public:
+	bool operator()(int x) const { return x < n; }
+	__lambda_6_18(int& _n) : n{_n} {}
+private:
+	int n;
+};
+
+int n = 10;
+auto lessThanN = __lambda_6_18{ n };
+find_if(begin, end, lessThanN);
+```
+
+### std::function
+
+std::function is an overarching type for functions/lambdas 
+
+• Any functor/lambda/function pointer can be cast to it 
+
+• It is a bit slower 
+
+• usually use auto/templates and don’t worry about the types!
+
+**只有在真正需要类型擦除时才使用 std::function**，比如存储不同类型的可调用对象到容器中，或者作为多态接口。
+
+### Ranges & Views (C++20)
+
+1. Ranges: 可以遍历的元素序列
+2. Views: 延迟求值的范围适配器(a way to compose algorithms)
+
+```cpp
+int main(){
+    std::vector<char> v={'a','b','c','d','e'};
+    auto it=std::ranges::find(v,'c');
+    std::cout<<*it;
+    return 0;
+}
+
+int main() {
+	std::vector<char> v = {'a', 'b', 'c', 'd', 'e'};
+	// Search from 'b' to 'd’
+	auto first = v.begin() + 1;
+	auto last = v.end() - 1;
+	auto it = std::ranges::find(first, last, 'c');
+}
+```
+
+```cpp
+std::vector<char> v = {'a', 'b', 'c', 'd', 'e'};
+
+// Filter -- Get only the vowels
+std::vector<char> f;
+std::copy_if(v.begin(), v.end(), std::back_inserter(f), isVowel);
+
+// Transform -- Convert to uppercase
+std::vector<char> t;
+std::transform(f.begin(), f.end(), std::back_inserter(t), toupper);
+
+// { 'A', 'E' }
+
+
+// using view
+// Views 最重要的特性：不立即计算，只在遍历时才计算
+std::vector<char> letters = {'a', 'b', 'c', 'd', 'e’};
+    
+auto f = std::ranges::views::filter(letters, isVowel);
+// f is a view! It takes an underlying range letters
+// and yields a new range with only vowels!
+                             
+auto t = std::ranges::views::transform(f, toupper);
+// t is a view! It takes an underlying range f
+// and yields a new range with uppercase chars!
+                             
+auto vowelUpper = std::ranges::to<std::vector<char>>(t);
+// Here we materialize the view into a vector!
+// Nothing actually happens until this line!
+                             
+                             
+// We can chain views together use operator |
+std::vector<char> letters = {'a','b','c','d','e'};
+std::vector<char> upperVowel = letters
+	| std::ranges::views::filter(isVowel)
+	| std::ranges::views::transform(toupper)
+	| std::ranges::to<std::vector<char>>();
+                             
+// upperVowel = { 'A', 'E' }
+```
+
+• Why you might like ranges/views?
+
+​	• Worry less about iterators 
+
+​	• Constrained algorithms mean better error messages 
+
+​	• Super readable, functional syntax 
+
+• Why you might dislike ranges/views? 
+
+​	• They are extremely new, not fully feature complete yet 
+
+​	• Lack of compiler support 
+
+​	• Loss of performance compared to hand-coded version
