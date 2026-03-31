@@ -13,8 +13,9 @@
 #include <set>
 #include <string>
 #include <unordered_set>
+#include <cstdlib>
 
-std::string kYourName = "STUDENT TODO"; // Don't forget to change this!
+std::string kYourName = "Ma Andy"; // Don't forget to change this!
 
 /**
  * Takes in a file name and returns a set containing all of the applicant names as a set.
@@ -27,8 +28,14 @@ std::string kYourName = "STUDENT TODO"; // Don't forget to change this!
  * below it) to use a `std::unordered_set` instead. If you do so, make sure
  * to also change the corresponding functions in `utils.h`.
  */
-std::set<std::string> get_applicants(std::string filename) {
-  // STUDENT TODO: Implement this function.
+std::unordered_set<std::string> get_applicants(std::string filename) {
+  std::ifstream file(filename);
+  std::string name;
+  std::unordered_set<std::string> nameSet;
+  while(getline(file,name,'\n')){
+    nameSet.insert(name);
+  }
+  return nameSet;
 }
 
 /**
@@ -39,8 +46,14 @@ std::set<std::string> get_applicants(std::string filename) {
  * @param students  The set of student names.
  * @return          A queue containing pointers to each matching name.
  */
-std::queue<const std::string*> find_matches(std::string name, std::set<std::string>& students) {
-  // STUDENT TODO: Implement this function.
+std::queue<const std::string*> find_matches(std::string name, std::unordered_set<std::string>& students) {
+  std::queue<const std::string*> matches;
+  for(const auto &studentName:students){
+    if(name[0]==studentName[0]&&name[name.find(' ')+1]==studentName[studentName.find(' ')+1]){
+      matches.push(&studentName);
+    }
+  }
+  return matches;
 }
 
 /**
@@ -54,7 +67,13 @@ std::queue<const std::string*> find_matches(std::string name, std::set<std::stri
  *                Will return "NO MATCHES FOUND." if `matches` is empty.
  */
 std::string get_match(std::queue<const std::string*>& matches) {
-  // STUDENT TODO: Implement this function.
+  int siz=matches.size();
+  if(siz==0)return "NO MATCHES FOUND.";
+  srand(time(0));
+  int numberToPop=random()%siz;
+  for(int i=1;i<=numberToPop;i++)matches.pop();
+  auto match=matches.back();
+  return *match;
 }
 
 /* #### Please don't remove this line! #### */

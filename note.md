@@ -479,3 +479,32 @@ std::vector<char> upperVowel = letters
 ​	• Lack of compiler support 
 
 ​	• Loss of performance compared to hand-coded version
+
+### 运算符重载
+
+分为两种：1. member overloading 2. non-member overloading
+
+STL 更偏好于 non-member 的，因为：
+
+1. 允许左侧操作数是非类类型
+2. 能为无法修改的类重载运算符
+
+```cpp
+// Non-member Operator Overloading
+bool operator< (const StanfordID& lhs, const StanfordID& rhs);
+// Member Operator Overloading
+bool StanfordID::operator< (const StanfordID& rhs) const {...}
+```
+
+### rule of contrariety
+
+```cpp
+bool StanfordID::operator==(const StanfordID& other) const {
+	return (name == other.name) && (sunet == other.sunet) &&
+	(idNumber == other.idNumber);
+}
+bool StanfordID::operator!=(const StanfordID& other) const {
+	return !(*this == other);
+}
+```
+
