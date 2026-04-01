@@ -87,6 +87,32 @@ int main(){
 }
 ```
 
+```cpp
+// &c[2] 是取地址操作，结果是纯右值（prvalue），因为取地址操作返回的是一个地址值（临时值）
+int *e=&c[2];
+
+// c.size()和static_cast<int>(f)都是右值
+size_t f=c.size();
+int g=static_cast<int>(f);
+```
+
+```cpp
+// 左值引用
+void update(Photo& pic);
+
+int main(){
+    Photo selfie=takePhoto();
+    upload(selfie);
+}
+
+// 右值引用
+void update(Photo&& pic);
+
+int main(){
+    upload(takePhoto());
+}
+```
+
 ### 关于 cin 和 getline
 
 最好不要一起用，对于 \n 的处理不同，cin 会把 \n 留在缓冲区，但 getline 会把 \n 也处理掉，直接到下一行，先 cin 再直接 getline 可能会让 getline 只读到一个 \n 
@@ -506,5 +532,98 @@ bool StanfordID::operator==(const StanfordID& other) const {
 bool StanfordID::operator!=(const StanfordID& other) const {
 	return !(*this == other);
 }
+```
+
+### 特殊成员函数(SMF->Special Member Function)
+
+1. 默认构造函数(Default Constructor)
+2. 析构函数(Destructor)
+3. 拷贝构造函数(Copy Constructor)：从同类型对象拷贝构造新对象
+4. 拷贝赋值运算符(Copy Assignment Operator)：将一个对象赋值给另一个已存在的对象
+5. 移动构造函数(Move Constructor)：从临时对象转移资源
+6. 移动赋值运算符(Move Assignment Operator)：将临时对象资源转移给已存在的对象
+
+### Rule of Zero
+
+如果自带的特殊成员函数可以运行，不要自己新定义
+
+如果不需要使用构造或析构之类的函数，那就不要使用即可
+
+如果你的类依赖已经有同样特殊成员函数的东西，不需要重新实现这些函数
+
+### Rule of Three
+
+如果类需要自定义析构函数、拷贝构造函数或拷贝赋值运算符中的任何一个，那么通常这三个函数都需要自定义
+
+原因：当你在析构函数中手动释放资源时，意味着类在管理某种资源（通常是动态内存、文件句柄、网络连接等）。这时候编译器自动生成的拷贝操作会执行**浅拷贝**，导致严重问题。
+
+### Rule of Five
+
+析构函数、拷贝构造函数、拷贝赋值运算符、移动构造函数、移动赋值运算符，如果自定义其中任何一个，通常需要自定义全部五个
+
+不是必须的，但如果不这样代码可能会因为一些不必要的拷贝变得更慢
+
+### 移动构造与赋值
+
+```
+Photo(Photo&& other) : wid(other.wid), length(other.length), data(other.data) {
+    other.wid = 0;
+    other.length = 0;
+    other.data = nullptr;
+}
+
+Photo& operator=(Photo&& other)  {
+    if (this != &other) {
+        delete[] data;
+        wid = other.wid;
+        length = other.length;
+        data = other.data;
+        other.wid = 0;
+        other.length = 0;
+        other.data = nullptr;
+    }
+    return *this;
+}
+```
+
+### std::move
+
+强制对左值进行移动，被移动的对象执行完之后会变成一个未知的状态
+
+### std::optional
+
+```cpp
+void removeOddsFromEnd(vector<int>& vec){
+	while(vec.back() % 2 == 1){
+		vec.pop_back();
+	}
+}
+// 假设一个这样的函数，如果 vec 本身就是空的，那访问 vec.back() 会导致错误或不可预期结果
+// std::optional 是一个模版类，表示一个可能包含值，也可能不包含值的对象
+// 主要有 3 个成员方法
+// .value() 获取值，如果是 std::nullopt 即不包含值，会抛出 std::bad_optional_access
+// .value_or(default_val) 获取值，如果是 std::nullopt 会返回 default_val
+// .has_value() 检查是否有值
+
+// 但 std::optional 也不能解决所有未定义行为
+std::optional<valueType&>
+vector<valueType>::operator[](size_t index){
+	return *(begin() + index);
+}
+// 如果访问的 vector 是空的，按理要返回一个值为引用的 optional ，但是引用 std::nullopt 是未定义行为
+
+std::optional<int> opt = std::nullopt;
+int val = *opt;  // 未定义行为！没有错误检查
+
+// 其他成员方法
+- .and_then(function f)
+returns the result of calling f(value) if contained value exists,
+otherwise null_opt (f must return optional)
+- .transform(function f)
+returns the result of calling f(value) if contained value exists,
+otherwise null_opt (f must return optional<valueType>)
+-
+.or_else(function f)
+returns value if it exists, otherwise returns result of calling f
 ```
 
