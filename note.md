@@ -389,7 +389,7 @@ auto lambda = [capture-values](arguments) {
 }
 // lambda 的"捕获所有变量"只捕获局部变量（包括当前函数的参数），不包括全局变量、静态变量、类成员变量。
 [x](arguments) // captures x by value (makes a copy)
-[x&](arguments) // captures x by reference
+[&x](arguments) // captures x by reference
 [x, y](arguments) // captures x, y by value
 [&](arguments) // captures everything by reference
 [&, x](arguments) // captures everything except x by reference
@@ -627,3 +627,118 @@ otherwise null_opt (f must return optional<valueType>)
 returns value if it exists, otherwise returns result of calling f
 ```
 
+### RAII(Resource Acquisition Is Initialization)
+
+资源的获取在对象构造时完成，资源的释放在对象析构时进行
+
+优势：
+
+1. 即使发生异常，栈上对象也会自动析构，避免资源泄露
+2. 无需手动编写资源释放代码
+3. 编译器保证析构函数的调用
+
+RAII for locks -> lock_guard
+
+RAII for memory->smart pointers
+
+1. std::unique_ptr：拥有唯一资源，不可拷贝，只能移动
+2. std::shared_ptr：多个指针共享所有权，引用计数管理生命周期
+3. std::weak_ptr：避免循环引用，防止内存泄漏
+
+smart pointers 初始化
+
+```cpp
+// Always use std::make_unique<T> and std::make_shared<T>
+std::unique_ptr<T> uniquePtr=std::make_unique<T>();
+std::shared_ptr<T> sharedPtr=std::make_shared<T>();
+std::weak_ptr<T> wp=sharedPtr;
+
+// 不安全：可能存在内存泄漏
+void risky_function(std::shared_ptr<Widget> sp, int priority);
+
+// 调用方式
+risky_function(std::shared_ptr<Widget>(new Widget), compute_priority());
+
+// 可能的执行顺序：
+// 1. new Widget（分配内存）
+// 2. compute_priority()（可能抛出异常）
+// 3. shared_ptr 构造函数
+// 
+// 如果 compute_priority() 抛出异常，new Widget 的内存就泄漏了！
+
+// 使用 new：两次内存分配
+std::shared_ptr<Widget> sp1(new Widget);
+// 分配1: new Widget 的控制块
+// 分配2: Widget 对象本身
+// 总共 2 次内存分配
+```
+
+```cpp
+// 循环引用导致的内存泄漏
+class Parent {
+public:
+    std::shared_ptr<Child> child;
+    ~Parent() { std::cout << "Parent destroyed" << std::endl; }
+};
+
+class Child {
+public:
+    std::shared_ptr<Parent> parent;  // 强引用
+    ~Child() { std::cout << "Child destroyed" << std::endl; }
+};
+
+void createFamily() {
+    auto p = std::make_shared<Parent>();
+    auto c = std::make_shared<Child>();
+    
+    p->child = c;   // Parent 持有 Child
+    c->parent = p;  // Child 持有 Parent
+    
+    // 离开作用域时：
+    // p 引用计数: 1 (被 c->parent 持有)
+    // c 引用计数: 1 (被 p->child 持有)
+    // 内存泄漏！两个对象永远不会被销毁
+}
+
+// 使用 weak_ptr 打破循环
+class Parent {
+public:
+    std::shared_ptr<Child> child;
+    ~Parent() { std::cout << "Parent destroyed" << std::endl; }
+};
+
+class Child {
+public:
+    std::weak_ptr<Parent> parent;  // 弱引用，不增加引用计数
+    ~Child() { std::cout << "Child destroyed" << std::endl; }
+};
+
+void createFamily() {
+    auto p = std::make_shared<Parent>();
+    auto c = std::make_shared<Child>();
+    
+    p->child = c;           // Parent 强引用 Child
+    c->parent = p;          // Child 弱引用 Parent（不增加计数）
+    
+    // 离开作用域：
+    // p 引用计数: 1 (仅自身) → 降为 0，Parent 销毁
+    // Parent 销毁时，p->child 析构，Child 引用计数降为 0
+    // Child 也被销毁
+}
+
+// 输出：
+// Parent destroyed
+// Child destroyed
+```
+
+### CMake
+
+1. You need to have a CMakeLists.txt ﬁle in your project’s root directory
+2. Make a build folder (mkdir build) within your project!
+3. Go into the build folder (cd build)
+4. Run cmake ..
+a. This command runs cmake using the CMakeLists.txt in your project’s root
+folder!
+b. This generates a Makefile
+5. Run make
+6. Execute your program using ./main as usual
